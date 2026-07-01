@@ -136,7 +136,13 @@ function buildComment(
         }
     }
 
-    lines.push('', '> ⚪ no change · 🟢 faster · 🟡 slightly slower · 🔴 regression', '', commentFooter(gitHubContext));
+    lines.push(
+        '',
+        '> **vs Base** — ratio of current to base (`1.00x` = identical, lower = faster). **Change** — visual bar scaled 0–2x.',
+        '> ⚪ no change · 🟢 faster · 🟡 slightly slower (>5%) · 🔴 regression (>20%)',
+        '',
+        commentFooter(gitHubContext),
+    );
 
     return lines.join('\n');
 }
