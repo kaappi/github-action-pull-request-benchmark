@@ -65,6 +65,28 @@ function strVal(b: BenchmarkResult): string {
     return s;
 }
 
+const BAR_FULL = '█';
+const BAR_LIGHT = '░';
+const BAR_WIDTH = 20;
+
+function ratioBar(ratio: number): string {
+    if (!isFinite(ratio) || ratio <= 0) return '';
+    const clamped = Math.min(ratio, 2.0);
+    const filled = Math.round((clamped / 2.0) * BAR_WIDTH);
+    const empty = BAR_WIDTH - filled;
+    return '`' + BAR_FULL.repeat(filled) + BAR_LIGHT.repeat(empty) + '`';
+}
+
+function ratioIndicator(ratio: number, biggerIsBetter: boolean): string {
+    if (!isFinite(ratio)) return '⚪';
+    const regression = biggerIsBetter ? ratio < 1.0 : ratio > 1.0;
+    const improvement = biggerIsBetter ? ratio > 1.0 : ratio < 1.0;
+    if (regression && ratio > 1.2) return '🔴';
+    if (regression && ratio > 1.05) return '🟡';
+    if (improvement && ratio < 0.95) return '🟢';
+    return '⚪';
+}
+
 function commentFooter(gitHubContext: GitHubContext): string {
     const repo = getCurrentRepo(gitHubContext);
     // eslint-disable-next-line @typescript-eslint/camelcase
@@ -80,32 +102,29 @@ function buildComment(
     prevSuite: Benchmark,
     gitHubContext: GitHubContext,
 ): string {
+    const curShort = curSuite.commit.id.slice(0, 7);
+    const prevShort = prevSuite.commit.id.slice(0, 7);
     const lines = [
         `# ${benchName}`,
         '',
-        '<details>',
-        '',
-        `| Benchmark suite | Current: ${curSuite.commit.id} | Previous: ${prevSuite.commit.id} | Ratio |`,
-        '|-|-|-|-|',
+        `| | Benchmark | Current (${curShort}) | Base (${prevShort}) | Ratio | Change |`,
+        '|:-|:-|-:|-:|:-:|:-:|',
     ];
 
     for (const current of curSuite.benches.values()) {
-        let line;
         const prev = prevSuite.benches.get(current.name);
 
         if (prev) {
             const ratio = getRatio(current, prev);
-
-            line = `| \`${current.name}\` | ${strVal(current)} | ${strVal(prev)} | \`${floatStr(ratio)}\` |`;
+            const indicator = ratioIndicator(ratio, current.biggerIsBetter);
+            const bar = ratioBar(ratio);
+            lines.push(`| ${indicator} | \`${current.name}\` | ${strVal(current)} | ${strVal(prev)} | \`${floatStr(ratio)}\` | ${bar} |`);
         } else {
-            line = `| \`${current.name}\` | ${strVal(current)} | | |`;
+            lines.push(`| 🆕 | \`${current.name}\` | ${strVal(current)} | — | | |`);
         }
-
-        lines.push(line);
     }
 
-    // Footer
-    lines.push('', '</details>', '', commentFooter(gitHubContext));
+    lines.push('', '> ⚪ no change · 🟢 faster · 🟡 slightly slower · 🔴 regression', '', commentFooter(gitHubContext));
 
     return lines.join('\n');
 }
@@ -123,20 +142,23 @@ function buildAlertComment(
     const benchmarkText = benchName === 'Benchmark' ? '' : ` **'${benchName}'**`;
     const title = threshold === 0 ? '# Performance Report' : '# **Performance Alert**';
     const thresholdString = floatStr(threshold);
+    const curShort = curSuite.commit.id.slice(0, 7);
+    const prevShort = prevSuite.commit.id.slice(0, 7);
     const lines = [
         title,
         '',
         `Possible performance regression was detected for benchmark${benchmarkText}.`,
         `Benchmark result of this commit is worse than the previous benchmark result exceeding threshold \`${thresholdString}\`.`,
         '',
-        `| Benchmark suite | Current: ${curSuite.commit.id} | Previous: ${prevSuite.commit.id} | Ratio |`,
-        '|-|-|-|-|',
+        `| | Benchmark | Current (${curShort}) | Base (${prevShort}) | Ratio | Change |`,
+        '|:-|:-|-:|-:|:-:|:-:|',
     ];
 
     for (const alert of alerts) {
         const { current, prev, ratio } = alert;
-        const line = `| \`${current.name}\` | ${strVal(current)} | ${strVal(prev)} | \`${floatStr(ratio)}\` |`;
-        lines.push(line);
+        const indicator = ratioIndicator(ratio, current.biggerIsBetter);
+        const bar = ratioBar(ratio);
+        lines.push(`| ${indicator} | \`${current.name}\` | ${strVal(current)} | ${strVal(prev)} | \`${floatStr(ratio)}\` | ${bar} |`);
     }
 
     // Footer
