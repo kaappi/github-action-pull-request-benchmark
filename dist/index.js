@@ -60,12 +60,22 @@ function floatStr(n) {
     }
     return n.toString();
 }
-function strVal(b) {
-    let s = `\`${b.value}\` ${b.unit}`;
+function strVal(b, omitUnit = false) {
+    let s = omitUnit ? `\`${b.value}\`` : `\`${b.value}\` ${b.unit}`;
     if (b.range) {
         s += ` (\`${b.range}\`)`;
     }
     return s;
+}
+function commonUnit(suite) {
+    let unit = null;
+    for (const b of suite.benches.values()) {
+        if (unit === null)
+            unit = b.unit;
+        else if (unit !== b.unit)
+            return null;
+    }
+    return unit;
 }
 const BAR_FULL = '█';
 const BAR_LIGHT = '░';
@@ -102,10 +112,13 @@ function commentFooter(gitHubContext) {
 function buildComment(benchName, curSuite, prevSuite, gitHubContext) {
     const curShort = curSuite.commit.id.slice(0, 7);
     const prevShort = prevSuite.commit.id.slice(0, 7);
+    const unit = commonUnit(curSuite);
+    const unitSuffix = unit ? ` (${unit})` : '';
+    const omitUnit = unit !== null;
     const lines = [
         `# ${benchName}`,
         '',
-        `| | Benchmark | Current (${curShort}) | Base (${prevShort}) | Ratio | Change |`,
+        `| | Benchmark | Current (${curShort})${unitSuffix} | Base (${prevShort})${unitSuffix} | Ratio | Change |`,
         '|:-|:-|-:|-:|:-:|:-:|',
     ];
     for (const current of curSuite.benches.values()) {
@@ -114,10 +127,10 @@ function buildComment(benchName, curSuite, prevSuite, gitHubContext) {
             const ratio = getRatio(current, prev);
             const indicator = ratioIndicator(ratio, current.biggerIsBetter);
             const bar = ratioBar(ratio);
-            lines.push(`| ${indicator} | \`${current.name}\` | ${strVal(current)} | ${strVal(prev)} | \`${floatStr(ratio)}\` | ${bar} |`);
+            lines.push(`| ${indicator} | \`${current.name}\` | ${strVal(current, omitUnit)} | ${strVal(prev, omitUnit)} | \`${floatStr(ratio)}\` | ${bar} |`);
         }
         else {
-            lines.push(`| 🆕 | \`${current.name}\` | ${strVal(current)} | — | | |`);
+            lines.push(`| 🆕 | \`${current.name}\` | ${strVal(current, omitUnit)} | — | | |`);
         }
     }
     lines.push('', '> ⚪ no change · 🟢 faster · 🟡 slightly slower · 🔴 regression', '', commentFooter(gitHubContext));
@@ -130,20 +143,23 @@ function buildAlertComment(alerts, benchName, curSuite, prevSuite, threshold, cc
     const thresholdString = floatStr(threshold);
     const curShort = curSuite.commit.id.slice(0, 7);
     const prevShort = prevSuite.commit.id.slice(0, 7);
+    const unit = commonUnit(curSuite);
+    const unitSuffix = unit ? ` (${unit})` : '';
+    const omitUnit = unit !== null;
     const lines = [
         title,
         '',
         `Possible performance regression was detected for benchmark${benchmarkText}.`,
         `Benchmark result of this commit is worse than the previous benchmark result exceeding threshold \`${thresholdString}\`.`,
         '',
-        `| | Benchmark | Current (${curShort}) | Base (${prevShort}) | Ratio | Change |`,
+        `| | Benchmark | Current (${curShort})${unitSuffix} | Base (${prevShort})${unitSuffix} | Ratio | Change |`,
         '|:-|:-|-:|-:|:-:|:-:|',
     ];
     for (const alert of alerts) {
         const { current, prev, ratio } = alert;
         const indicator = ratioIndicator(ratio, current.biggerIsBetter);
         const bar = ratioBar(ratio);
-        lines.push(`| ${indicator} | \`${current.name}\` | ${strVal(current)} | ${strVal(prev)} | \`${floatStr(ratio)}\` | ${bar} |`);
+        lines.push(`| ${indicator} | \`${current.name}\` | ${strVal(current, omitUnit)} | ${strVal(prev, omitUnit)} | \`${floatStr(ratio)}\` | ${bar} |`);
     }
     // Footer
     lines.push('', commentFooter(gitHubContext));
