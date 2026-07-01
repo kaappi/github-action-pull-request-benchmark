@@ -118,7 +118,7 @@ function buildComment(benchName, curSuite, prevSuite, gitHubContext) {
     const lines = [
         `# ${benchName}`,
         '',
-        `| | Benchmark | Current (${curShort})${unitSuffix} | Base (${prevShort})${unitSuffix} | Ratio | Change |`,
+        `| | Benchmark | Current (${curShort})${unitSuffix} | Base (${prevShort})${unitSuffix} | vs Base | Change |`,
         '|:-|:-|-:|-:|:-:|:-:|',
     ];
     for (const current of curSuite.benches.values()) {
@@ -127,7 +127,7 @@ function buildComment(benchName, curSuite, prevSuite, gitHubContext) {
             const ratio = getRatio(current, prev);
             const indicator = ratioIndicator(ratio, current.biggerIsBetter);
             const bar = ratioBar(ratio);
-            lines.push(`| ${indicator} | \`${current.name}\` | ${strVal(current, omitUnit)} | ${strVal(prev, omitUnit)} | \`${floatStr(ratio)}\` | ${bar} |`);
+            lines.push(`| ${indicator} | \`${current.name}\` | ${strVal(current, omitUnit)} | ${strVal(prev, omitUnit)} | \`${floatStr(ratio)}x\` | ${bar} |`);
         }
         else {
             lines.push(`| 🆕 | \`${current.name}\` | ${strVal(current, omitUnit)} | — | | |`);
@@ -152,14 +152,14 @@ function buildAlertComment(alerts, benchName, curSuite, prevSuite, threshold, cc
         `Possible performance regression was detected for benchmark${benchmarkText}.`,
         `Benchmark result of this commit is worse than the previous benchmark result exceeding threshold \`${thresholdString}\`.`,
         '',
-        `| | Benchmark | Current (${curShort})${unitSuffix} | Base (${prevShort})${unitSuffix} | Ratio | Change |`,
+        `| | Benchmark | Current (${curShort})${unitSuffix} | Base (${prevShort})${unitSuffix} | vs Base | Change |`,
         '|:-|:-|-:|-:|:-:|:-:|',
     ];
     for (const alert of alerts) {
         const { current, prev, ratio } = alert;
         const indicator = ratioIndicator(ratio, current.biggerIsBetter);
         const bar = ratioBar(ratio);
-        lines.push(`| ${indicator} | \`${current.name}\` | ${strVal(current, omitUnit)} | ${strVal(prev, omitUnit)} | \`${floatStr(ratio)}\` | ${bar} |`);
+        lines.push(`| ${indicator} | \`${current.name}\` | ${strVal(current, omitUnit)} | ${strVal(prev, omitUnit)} | \`${floatStr(ratio)}x\` | ${bar} |`);
     }
     // Footer
     lines.push('', commentFooter(gitHubContext));
