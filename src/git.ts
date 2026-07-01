@@ -94,22 +94,39 @@ export function getCurrentRepo(gitHubContext: GitHubContext) {
     return repo;
 }
 
+const COMMENT_MARKER = '<!-- benchmark-pr-comment -->';
+
 export async function publishComment(targetCommit: Commit, body: string, token: string, gitHubContext: GitHubContext) {
     const currentRepo = getCurrentRepo(gitHubContext);
-    const commitId = targetCommit.id;
     const api = github.getOctokit(token).rest;
-    // NB: we always point to the current repo as posting comments on PRs from forked repos will fail anyway due to GITHUB_TOKEN permission limitations
+    const owner = currentRepo.owner.login;
+    const repo = currentRepo.name;
+    const markedBody = `${COMMENT_MARKER}\n${body}`;
+
+    const pr = gitHubContext.payload.pull_request;
+    if (pr) {
+        const issueNumber = pr.number as number;
+        const { data: comments } = await api.issues.listComments({ owner, repo, issue_number: issueNumber });
+        const existing = comments.find((c) => c.body?.includes(COMMENT_MARKER));
+
+        let res;
+        if (existing) {
+            res = await api.issues.updateComment({ owner, repo, comment_id: existing.id, body: markedBody });
+            console.log(`Updated existing PR comment #${existing.id}. Response:`, res.status);
+        } else {
+            res = await api.issues.createComment({ owner, repo, issue_number: issueNumber, body: markedBody });
+            console.log(`Created new PR comment. Response:`, res.status);
+        }
+        return res;
+    }
+
     const res = await api.repos.createCommitComment({
-        owner: currentRepo.owner.login,
-        repo: currentRepo.name,
-        // eslint-disable-next-line @typescript-eslint/camelcase
-        commit_sha: commitId,
-        body,
+        owner,
+        repo,
+        commit_sha: targetCommit.id,
+        body: markedBody,
     });
-
-    const commitUrl = `${targetCommit.url}`;
-    console.log(`Comment was sent to ${commitUrl}. Response:`, res.status, res.data);
-
+    console.log(`Comment was sent to commit ${targetCommit.id}. Response:`, res.status);
     return res;
 }
 

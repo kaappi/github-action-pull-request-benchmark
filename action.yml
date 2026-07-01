@@ -1,6 +1,6 @@
 name: 'Pull Request Benchmark'
 author: ''
-description: 'Continuous benchmark of pull requests to monitor performance regression'
+description: 'Compare PR benchmarks against base branch and post results as a PR comment'
 branding:
   icon: 'fast-forward'
   color: 'blue'
@@ -48,5 +48,5 @@ inputs:
     description: 'Create alert/failure annotations on the given file, even if unchanged. The specified filepath can be relative to the repo root'
     required: false
 runs:
-  using: 'node20'
+  using: 'node22'
   main: 'dist/index.js'
