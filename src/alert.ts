@@ -19,6 +19,8 @@ interface Alert {
 }
 
 function getRatio(current: BenchmarkResult, prev: BenchmarkResult): number {
+    const divisor = current.biggerIsBetter ? current.value : prev.value;
+    if (divisor === 0) return current.value === prev.value ? 1.0 : Infinity;
     return current.biggerIsBetter
         ? prev.value / current.value // e.g. current=100, prev=200
         : current.value / prev.value;
@@ -36,6 +38,11 @@ function findAlerts(curSuite: Benchmark, prevSuite: Benchmark, threshold: number
         }
 
         const ratio = getRatio(current, prev);
+
+        if (!isFinite(ratio)) {
+            core.debug(`Skipped '${current.name}': ratio is infinite (base value is zero)`);
+            continue;
+        }
 
         if (ratio > threshold) {
             alerts.push({ current, prev, ratio });
@@ -128,9 +135,13 @@ function buildComment(
 
         if (prev) {
             const ratio = getRatio(current, prev);
-            const indicator = ratioIndicator(ratio, current.biggerIsBetter);
-            const bar = ratioBar(ratio);
-            lines.push(`| ${indicator} | \`${current.name}\` | ${strVal(current, omitUnit)} | ${strVal(prev, omitUnit)} | \`${floatStr(ratio)}x\` | ${bar} |`);
+            if (!isFinite(ratio)) {
+                lines.push(`| 🆕 | \`${current.name}\` | ${strVal(current, omitUnit)} | ${strVal(prev, omitUnit)} | \`new\` | |`);
+            } else {
+                const indicator = ratioIndicator(ratio, current.biggerIsBetter);
+                const bar = ratioBar(ratio);
+                lines.push(`| ${indicator} | \`${current.name}\` | ${strVal(current, omitUnit)} | ${strVal(prev, omitUnit)} | \`${floatStr(ratio)}x\` | ${bar} |`);
+            }
         } else {
             lines.push(`| 🆕 | \`${current.name}\` | ${strVal(current, omitUnit)} | — | | |`);
         }
